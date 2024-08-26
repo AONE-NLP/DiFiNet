@@ -4,12 +4,12 @@ from fastNLP import seq_len_to_mask
 from torch_scatter import scatter_max
 import torch
 import torch.nn.functional as F
-from .cnn import MaskCNN
+from .cnn import MaskCNN_1,MaskCNN_2
 from .multi_head_biaffine3 import MultiHeadBiaffine
 
 class CNNNer(nn.Module):
     def __init__(self, model_name, num_ner_tag, cnn_dim=200, biaffine_size=200,
-                 size_embed_dim=0, logit_drop=0, kernel_size=3, n_head=4, cnn_depth=3, msize=7,separateness_rate=0.1,theta=1,loss_theta=1):
+                 size_embed_dim=0, logit_drop=0, kernel_size=3, n_head=4, cnn_depth=3, n_layer=2,separateness_rate=0.1,theta=1,loss_theta=1):
         super(CNNNer, self).__init__()
         self.mdim =(cnn_dim) 
         self.num_ner_tag = num_ner_tag
@@ -17,6 +17,7 @@ class CNNNer(nn.Module):
         self.separateness_rate = separateness_rate
         self.cnn_dim = cnn_dim
         self.loss_theta = loss_theta
+        self.n_layer = n_layer
         # self.param_span= nn.Parameter(torch.randn(2,cnn_dim)/20,requires_grad=True)
         self.pretrain_model = AutoModel.from_pretrained(model_name)
         hidden_size = self.pretrain_model.config.hidden_size
@@ -51,8 +52,10 @@ class CNNNer(nn.Module):
         self.W = torch.nn.Parameter(torch.empty(cnn_dim, hsz))
         torch.nn.init.xavier_normal_(self.W.data)
         if cnn_depth > 0:
-            self.cnn1 = MaskCNN(cnn_dim, cnn_dim, kernel_size=kernel_size, depth=cnn_depth,theta=theta)
-
+            if self.n_layer == 1:
+                self.cnn1 = MaskCNN_1(cnn_dim, cnn_dim, kernel_size=kernel_size, depth=cnn_depth,theta=theta)
+            elif self.n_layer == 2:
+                self.cnn1 = MaskCNN_2(cnn_dim, cnn_dim, kernel_size=kernel_size, depth=cnn_depth,theta=theta)
         self.down_fc = nn.Linear(cnn_dim*3, num_ner_tag)
         torch.nn.init.xavier_normal_(self.down_fc.weight.data)
         self.logit_drop = logit_drop
