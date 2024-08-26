@@ -43,12 +43,26 @@ The item {dataset} can be replaced with "04", "05" or "genia". The experiment re
 
 ## Citation
 ```
-@inproceedings{cai2024difinet,
-title={DiFiNet: Boundary-Aware Semantic Differentiation and Filtration Network for Nested Named Entity Recognition},
-author={Cai, Yuxiang and Liu, Qiao and Gan, Yanglei and Lin, Run and Li, Changlin and Liu, Xueyi and Yang, Jiaye},
-booktitle={The 62nd Annual Meeting of the Association for Computational Linguistics},
-year={2024},
-address={Bangkok, Thailand}
+@inproceedings{cai-etal-2024-difinet,
+    title = "{D}i{F}i{N}et: Boundary-Aware Semantic Differentiation and Filtration Network for Nested Named Entity Recognition",
+    author = "Cai, Yuxiang  and
+      Liu, Qiao  and
+      Gan, Yanglei  and
+      Lin, Run  and
+      Li, Changlin  and
+      Liu, Xueyi  and
+      Luo, Da  and
+      Jiaye, Yang",
+    editor = "Ku, Lun-Wei  and
+      Martins, Andre  and
+      Srikumar, Vivek",
+    booktitle = "Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)",
+    month = aug,
+    year = "2024",
+    address = "Bangkok, Thailand",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.acl-long.349",
+    pages = "6455--6471"
 }
 ```
 ## Have any Questions？Please email cyx_yyy at foxmail dot com
