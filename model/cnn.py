@@ -296,7 +296,7 @@ class MaskCNN_2(nn.Module):
         
         if 0 in cnn_type:
             direction_flag = True
-            zhengfu = 1
+            direction = 1
             for layer1 in self.cnns1:
                 if isinstance(layer1, LayerNorm):
                     x_1 = layer1(x_1)
@@ -307,8 +307,8 @@ class MaskCNN_2(nn.Module):
                         direction_flag = False
                         x_1 = x_1 + _x1
                     else:
-                        layer1.conv2d_3.diff_conv2d_weight = layer1.conv2d_3.diff_conv2d_weight * zhengfu
-                        zhengfu = zhengfu * -1
+                        layer1.conv2d_3.diff_conv2d_weight = layer1.conv2d_3.diff_conv2d_weight * direction
+                        direction = direction * -1
                         direction_flag = True
                 else:
                     x_1 = layer1(x_1)
@@ -318,7 +318,7 @@ class MaskCNN_2(nn.Module):
                     
         if 1 in cnn_type:
             direction_flag = True
-            zhengfu = 1
+            direction = 1
             for layer in self.cnns2:
                 if isinstance(layer, LayerNorm):
                     x_2 = layer(x_2)
@@ -329,8 +329,8 @@ class MaskCNN_2(nn.Module):
                         direction_flag = False
                         x_2 = x_2 + _x2
                     else:
-                        layer.conv2d_3.diff_conv2d_weight = layer.conv2d_3.diff_conv2d_weight * zhengfu
-                        zhengfu = zhengfu * -1
+                        layer.conv2d_3.diff_conv2d_weight = layer.conv2d_3.diff_conv2d_weight * direction
+                        direction = direction * -1
                         direction_flag = True
                 else:
                     x_2 = layer(x_2)
@@ -339,7 +339,7 @@ class MaskCNN_2(nn.Module):
                     t_hor.append(x_2)
         if 2 in cnn_type:
             direction_flag = True
-            zhengfu = 1
+            direction = 1
             for layer in self.cnns3:
                 if isinstance(layer, LayerNorm):
                     x_3 = layer(x_3)
@@ -350,8 +350,8 @@ class MaskCNN_2(nn.Module):
                         direction_flag = False
                         x_3 = x_3 + _x3
                     else:
-                        layer.conv2d_3.diff_conv2d_weight = layer.conv2d_3.diff_conv2d_weight * zhengfu
-                        zhengfu = zhengfu * -1
+                        layer.conv2d_3.diff_conv2d_weight = layer.conv2d_3.diff_conv2d_weight * direction
+                        direction = direction * -1
                         direction_flag = True
                 else:
                     x_3 = layer(x_3)
