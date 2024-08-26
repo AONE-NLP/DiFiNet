@@ -2,6 +2,7 @@ import json
 import os
 import warnings
 import argparse
+# from torchstat import stat
 if 'p' in os.environ:
     os.environ['CUDA_VISIBLE_DEVICES'] = os.environ['p']
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
@@ -11,6 +12,7 @@ warnings.filterwarnings('ignore')
 import numpy as np
 import torch
 import random
+# from thop import profile
 from fastNLP.core.callbacks.topk_saver import TopkSaver
 from fastNLP import cache_results, prepare_torch_dataloader
 from fastNLP import print
@@ -24,7 +26,7 @@ import fitlog
 # fitlog.debug()
 
 from model.model import CNNNer
-from model.metrics import NERMetric
+from model.metrics_length import NERMetric
 from data.ner_pipe import SpanNerPipe
 from data.padder import Torch3DMatrixPadder
 
@@ -34,7 +36,7 @@ parser.add_argument('--encoder_lr', default=2e-5, type=float)
 parser.add_argument('-b', '--batch_size', default=24, type=int)
 parser.add_argument('-n', '--n_epochs', default=50, type=int)
 parser.add_argument('--warmup', default=0.1, type=float)
-parser.add_argument('-d', '--dataset_name', default='ace2005', type=str) # ace2005 genia ace2004
+parser.add_argument('-d', '--dataset_name', default='ace2004', type=str) # ace2005 genia ace2004
 parser.add_argument('--model_name', default=None, type=str)
 parser.add_argument('--cnn_depth', default=1, type=int)
 parser.add_argument('--cnn_dim', default=120, type=int)
@@ -42,28 +44,29 @@ parser.add_argument('--num', default=1, type=int)
 parser.add_argument('--logit_drop', default=0, type=float)
 parser.add_argument('--biaffine_size', default=200, type=int)
 parser.add_argument('--n_head', default=5, type=int)
-parser.add_argument('--seed', default=43, type=int)
-parser.add_argument('--msize', default=5, type=int)
+parser.add_argument('--seed', default=0, type=int)
+parser.add_argument('--n_layer', default=1, type=int)
 parser.add_argument('--accumulation_steps', default=1, type=int)
 parser.add_argument('--separateness_rate', default=5, type=int)
-
+parser.add_argument('--theta', default=1, type=float)
+parser.add_argument('--loss_theta', default=1, type=float)
 
 args = parser.parse_args()
 dataset_name = args.dataset_name
 if args.model_name is None:
     if 'genia' in args.dataset_name:
-        args.model_name = '.cache/huggingface/hub/models--dmis-lab--biobert-v1.1/snapshots/551ca18efd7f052c8dfa0b01c94c2a8e68bc5488'
+        args.model_name = '/home/caiyuxiang/.cache/huggingface/hub/models--dmis-lab--biobert-v1.1/snapshots/551ca18efd7f052c8dfa0b01c94c2a8e68bc5488'
     elif args.dataset_name in ('conll03'):
-        args.model_name = '.cache/huggingface/hub/models--bert-large-cased/snapshots/d9238236d8326ce4bc117132bb3b7e62e95f3a9a'
-        # args.model_name = '.cache/huggingface/hub/models--bert-base-cased/snapshots/5532cc56f74641d4bb33641f5c76a55d11f846e0'
+        args.model_name = 'models--bert-large-cased'
     elif args.dataset_name in ('ace2004','ace2005'):
-        args.model_name = '.cache/huggingface/hub/models--roberta-base/snapshots/ff46155979338ff8063cdad90908b498ab91b181'
+        args.model_name = '/home/caiyuxiang/.cache/huggingface/hub/models--roberta-base/snapshots/bc2764f8af2e92b6eb5679868df33e224075ca68'
+
 model_name = args.model_name
 n_head = args.n_head
 ######hyper
 non_ptm_lr_ratio = 100
 schedule = 'linear'
-weight_decay = 1e-2
+weight_decay = 1e-4
 size_embed_dim = 25
 ent_thres = 0.5
 kernel_size = 3
@@ -72,10 +75,9 @@ kernel_size = 3
 fitlog.set_log_dir('logs/')
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-
 def seed_torch(seed=43):
     random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)  # 为了禁止hash随机化，使得实验可复现
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -91,6 +93,7 @@ fitlog.add_hyper_in_file(__file__)
 
 @cache_results('caches/ner_caches.pkl', _refresh=False)
 def get_data(dataset_name, model_name):
+    # 以下是我们自己的数据
     if dataset_name == 'ace2004':
         paths = 'preprocess/outputs/ace2004'
     elif dataset_name == 'ace2005':
@@ -139,8 +142,8 @@ for name, ds in dl.iter_datasets():
     dls[name] = _dl
 
 model = CNNNer(model_name, num_ner_tag=matrix_segs['ent'], cnn_dim=args.cnn_dim, biaffine_size=args.biaffine_size,
-               size_embed_dim=size_embed_dim, logit_drop=args.logit_drop,msize=args.msize,
-               kernel_size=kernel_size, n_head=n_head, cnn_depth=args.cnn_depth,separateness_rate=args.separateness_rate/100)
+               size_embed_dim=size_embed_dim, logit_drop=args.logit_drop,n_layer=args.n_layer,
+               kernel_size=kernel_size, n_head=n_head, cnn_depth=args.cnn_depth,separateness_rate=args.separateness_rate/100,theta=args.theta)
 
 # optimizer
 parameters = []
@@ -181,20 +184,19 @@ optimizer = torch.optim.AdamW([{'params': non_ln_params, 'lr': args.lr, 'weight_
 # callbacks
 callbacks = []
 callbacks.append(FitlogCallback(log_loss_every=20))
-callbacks.append(CheckpointCallback(monitor='f#f#dev',save_evaluate_results=True, folder='_saved_models', topk=3))
+callbacks.append(CheckpointCallback(monitor='f#f#test',save_evaluate_results=True, folder='_saved_models', topk=3))
 callbacks.append(TorchGradClipCallback(clip_value=5))
 callbacks.append(TorchWarmupCallback(warmup=args.warmup, schedule=schedule))
 train_dls = {}
 evaluate_dls = {}
 
+if 'dev' in dls:
+    evaluate_dls['dev'] = dls['dev']
 if 'test' in dls:
     evaluate_dls['test'] = dls['test']
-if 'dev' in dls:
-    # train_dls['dev'] =dls.get('dev')
-    evaluate_dls['dev'] = dls['dev']
 allow_nested = True
 metrics = {'f': NERMetric(matrix_segs=matrix_segs, ent_thres=ent_thres, allow_nested=allow_nested)}
-# stat(model, (3, 224, 224))
+
 trainer = Trainer(model=model,
                   driver='torch',
                   train_dataloader=dls.get('train'),
@@ -211,5 +213,6 @@ trainer = Trainer(model=model,
                   accumulation_steps=args.accumulation_steps,
                   fp16=False,
                   progress_bar='rich')
+
 trainer.run(num_train_batch_per_epoch=-1, num_eval_batch_per_dl=-1, num_eval_sanity_batch=1)
 fitlog.finish()
