@@ -35,11 +35,6 @@ For GENIA dataset, we use the version from [W2NER](https://github.com/ljynlp/W2N
    ```
 The item {dataset} can be replaced with "04", "05" or "genia". The experiment results can be found in the directory `logs` after initiating the training process.
 
-## Evaluate with Checkpoint File
-
-```
-   bash eval_arg_{dataset}.sh
-```
 
 ## Citation
 ```
